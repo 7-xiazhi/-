@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>随机点名打分系统</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:微软雅黑}
+body{
+    background:#121224;
+    background:linear-gradient(135deg,#190a33,#0c2542,#27103b);
+    padding:20px;color:#fff;
+}
+.wrap{display:grid;grid-template-columns:280px 1fr 360px;gap:16px;max-width:1700px;margin:0 auto}
+.card{
+    background:rgba(255,255,255,0.08);
+    border:1px solid #8866ff55;
+    border-radius:16px;
+    padding:16px;height:90vh;overflow:auto;
+}
+h3{text-align:center;padding-bottom:10px;border-bottom:1px solid #8888ff44;margin-bottom:15px;color:#ffd2ff}
+.addBox{display:flex;gap:6px;margin-bottom:12px}
+#nameIn{flex:1;padding:6px;border:0;border-radius:6px;outline:none}
+#addStu{background:#39cc70;border:0;color:white;padding:6px 8px;border-radius:6px;cursor:pointer}
+.stuItem{background:rgba(255,255,255,0.1);padding:8px;margin:5px 0;border-radius:8px}
+.stuTop{display:flex;justify-content:space-between}
+.delBtn{background:#f54c4c;border:0;color:#fff;padding:2px 6px;border-radius:4px;cursor:pointer}
+.remarkIn{width:100%;margin-top:5px;padding:4px;border-radius:4px;border:0;outline:none}
+/*中间点名区*/
+.centerBox{display:flex;flex-direction:column;align-items:center;justify-content:center}
+.showName{font-size:70px;height:120px;line-height:120px;text-shadow:0 0 20px #ffe647}
+.btnGroup button{padding:12px 30px;margin:8px;border:0;border-radius:8px;font-size:17px;cursor:pointer}
+#start{background:#ff4466;color:#fff}
+#stop{background:#26b9dd;color:#fff}
+.scoreBox{margin-top:20px}
+#scoreInput{width:90px;padding:8px;font-size:18px;text-align:center;border-radius:6px;border:0}
+#saveScore{background:#ffaa22;color:white;padding:8px 16px;border:0;border-radius:6px;margin-left:8px;cursor:pointer}
+/*右侧记录*/
+.logItem{background:rgba(255,255,255,0.1);padding:10px;margin:6px 0;border-radius:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+    <!--左侧学生管理：增删+批注-->
+    <div class="card">
+        <h3>学生管理</h3>
+        <div class="addBox">
+            <input id="nameIn" placeholder="输入姓名">
+            <button id="addStu">新增</button>
+        </div>
+        <div id="stuList"></div>
+    </div>
+
+    <!--中间点名打分-->
+    <div class="card centerBox">
+        <div class="showName" id="result">等待点名</div>
+        <div class="btnGroup">
+            <button id="start">开始滚动</button>
+            <button id="stop">确定人选</button>
+        </div>
+        <div class="scoreBox">
+            <input type="number" id="scoreInput" placeholder="打分">
+            <button id="saveScore">保存分数</button>
+        </div>
+        <div style="margin-top:12px;color:#aaa">抽中自动降低下次抽取概率</div>
+    </div>
+
+    <!--右侧记录（姓名+批注+得分）-->
+    <div class="card">
+        <h3>点名&打分记录</h3>
+        <div id="recordList"></div>
+    </div>
+</div>
+
+<script>
+let student = [
+    {name:"小明",weight:10,remark:"",score:""},
+    {name:"小红",weight:10,remark:"",score:""},
+    {name:"小刚",weight:10,remark:"上课认真",score:""}
+]
+let timer = null;
+let nowPick = null;
+
+//渲染学生列表
+function render(){
+    let html = "";
+    student.forEach((item,i)=>{
+        html += `
+        <div class="stuItem">
+            <div class="stuTop">
+                <span>${item.name}</span>
+                <button class="delBtn" onclick="del(${i})">删除</button>
+            </div>
+            <input class="remarkIn" value="${item.remark}" onchange="editRemark(${i},this.value)" placeholder="填写批注">
+        </div>`
+    })
+    document.getElementById("stuList").innerHTML=html;
+}
+
+//新增学生
+document.getElementById("addStu").onclick=()=>{
+    let n = document.getElementById("nameIn").value.trim();
+    if(!n)return;
+    student.push({name:n,weight:10,remark:"",score:""});
+    document.getElementById("nameIn").value="";render();
+}
+//删除
+window.del=i=>{student.splice(i,1);render()}
+//修改批注
+window.editRemark=(i,val)=>student[i].remark=val;
+
+//加权随机
+function getRand(){
+    let all = student.reduce((s,o)=>s+o.weight,0);
+    let r = Math.random()*all;
+    let sum=0;
+    for(let s of student){sum+=s.weight;if(r<sum)return s}
+}
+
+//开始滚动
+document.getElementById("start").onclick=()=>{
+    if(student.length==0){alert("请添加学生");return}
+    clearInterval(timer);
+    timer = setInterval(()=>{
+        let s=getRand();
+        document.getElementById("result").innerText=s.name;
+    },70)
+}
+
+//停止点名
+document.getElementById("stop").onclick=()=>{
+    clearInterval(timer);
+    nowPick = getRand();
+    nowPick.weight = Math.max(1,nowPick.weight-3);
+}
+
+//保存分数
+document.getElementById("saveScore").onclick=()=>{
+    if(!nowPick){alert("先点名再打分");return}
+    let s = document.getElementById("scoreInput").value;
+    nowPick.score = s;
+    //写入记录
+    let log = document.getElementById("recordList");
+    let logHtml = `
+    <div class="logItem">
+        <div>姓名：${nowPick.name}</div>
+        <div>批注：${nowPick.remark||"无"}</div>
+        <div>得分：${nowPick.score}</div>
+    </div>`;
+    log.innerHTML = logHtml+log.innerHTML;
+    document.getElementById("scoreInput").value="";
+    render();
+}
+
+render();
+</script>
+</body>
+</html>
